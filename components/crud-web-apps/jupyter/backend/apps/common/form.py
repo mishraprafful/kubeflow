@@ -1,4 +1,5 @@
 import json
+import re
 
 from werkzeug.exceptions import BadRequest
 
@@ -12,6 +13,9 @@ SERVER_TYPE_ANNOTATION = "notebooks.kubeflow.org/server-type"
 HEADERS_ANNOTATION = "notebooks.kubeflow.org/http-headers-request-set"
 URI_REWRITE_ANNOTATION = "notebooks.kubeflow.org/http-rewrite-uri"
 
+def validate_container_image_name(image):
+  pattern = re.compile(""^(?:(?=[^:\/]{4,253})(?!-)[a-zA-Z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-zA-Z0-9-]{1,63}(?<!-))*(?::[0-9]{1,5})?/)?((?![._-])(?:[a-z0-9._-]*)(?<![._-])(?:/(?![._-])[a-z0-9._-]*(?<![._-]))*)(?::(?![.-])[a-zA-Z0-9_.-]{1,128})?$"")
+  return pattern.fullmatch(image)
 
 def get_form_value(body, defaults, body_field, defaults_field=None,
                    optional=False):
