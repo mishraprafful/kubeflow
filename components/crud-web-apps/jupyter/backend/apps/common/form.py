@@ -12,10 +12,16 @@ log = logging.getLogger(__name__)
 SERVER_TYPE_ANNOTATION = "notebooks.kubeflow.org/server-type"
 HEADERS_ANNOTATION = "notebooks.kubeflow.org/http-headers-request-set"
 URI_REWRITE_ANNOTATION = "notebooks.kubeflow.org/http-rewrite-uri"
+REGEX = r"^(?:(?=[^:\/]{4,253})(?!-)[a-zA-Z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-zA-Z0-9-]{1,63}(?<!-))*(?::[0-9]{1,5})?/)?((?![._-])(?:[a-z0-9._-]*)(?<![._-])(?:/(?![._-])[a-z0-9._-]*(?<![._-]))*)(?::(?![.-])[a-zA-Z0-9_.-]{1,128})?$"
+
 
 def validate_image_name(image):
-  pattern = re.compile(""^(?:(?=[^:\/]{4,253})(?!-)[a-zA-Z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-zA-Z0-9-]{1,63}(?<!-))*(?::[0-9]{1,5})?/)?((?![._-])(?:[a-z0-9._-]*)(?<![._-])(?:/(?![._-])[a-z0-9._-]*(?<![._-]))*)(?::(?![.-])[a-zA-Z0-9_.-]{1,128})?$"")
-  return pattern.fullmatch(image)
+    """
+    Match the value of image against valid regex for valid image names
+    """
+    pattern = re.compile(REGEX)
+    return pattern.fullmatch(image)
+
 
 def get_form_value(body, defaults, body_field, defaults_field=None,
                    optional=False):
@@ -78,7 +84,7 @@ def is_config_volume(vol):
 # Notebook YAML processing
 def set_notebook_image(notebook, body, defaults):
     """
-    If the image is set to readOnly, use only the value from the config
+    If the image is set to readOnly, validate the value from conig and then it.
     """
     image_body_field = "image"
     is_custom_image = body.get("customImage", False)
@@ -86,10 +92,12 @@ def set_notebook_image(notebook, body, defaults):
         image_body_field = "customImage"
 
     image = get_form_value(body, defaults, image_body_field, "image")
+
     if validate_image_name(image):
-      notebook["spec"]["template"]["spec"]["containers"][0]["image"] = image
+        notebook["spec"]["template"]["spec"]["containers"][0]["image"] = image
     else:
-      raise BadRequest("Invalid value provided for: %s" % image_body_field)
+        raise BadRequest("Invalid value provided for: %s" % image_body_field)
+
 
 def set_notebook_image_pull_policy(notebook, body, defaults):
     container = notebook["spec"]["template"]["spec"]["containers"][0]
