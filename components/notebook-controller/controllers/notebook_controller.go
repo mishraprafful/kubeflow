@@ -173,6 +173,31 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := ctrl.SetControllerReference(instance, service, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// Check if obsolete service exists
+	obsoleteServiceName := instance.Name
+	obsoleteService := &corev1.Service{}
+	log.Info("Checking obsolete Service", "namespace", service.Namespace, "notebook-name", instance.Name)
+	err = r.Get(ctx, types.NamespacedName{Name: obsoleteServiceName, Namespace: service.Namespace}, obsoleteService)
+	log.Info("Found obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
+	if apierrs.IsNotFound(err) {
+		log.Info("Removing Obsolete Service namespace", service.Namespace, "name", obsoleteService.Name)
+		obsoleteService.OwnerReferences = []metav1.OwnerReference{}
+		err = r.Update(ctx, obsoleteService)
+		if err != nil {
+			log.Error(err, "unable to update owner reference for obsolete Service")
+		}
+		err = r.Delete(ctx, obsoleteService)
+		if err != nil {
+			log.Error(err, "unable to delete obsolete Service")
+		} else {
+			log.Info("Deleted obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
+		}
+	} else {
+		log.Error(err, "error getting obsolete service")
+		return ctrl.Result{}, err
+	}
+
 	// Check if the Service already exists
 	foundService := &corev1.Service{}
 	justCreated = false
@@ -189,6 +214,7 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "error getting Service")
 		return ctrl.Result{}, err
 	}
+
 	// Update the foundService object and write the result back if there are any changes
 	if !justCreated && reconcilehelper.CopyServiceFields(service, foundService) {
 		log.Info("Updating Service\n", "namespace", service.Namespace, "name", service.Name)
@@ -462,6 +488,17 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 		},
 	}
 	return svc
+}
+
+// Function to check if labels match
+// TODO: only check if these labels only exist
+func labelExists(labels, label map[string]string) bool {
+	for key, value := range labels {
+		if label[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func virtualServiceName(kfName string, namespace string) string {
