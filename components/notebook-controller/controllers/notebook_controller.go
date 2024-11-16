@@ -55,7 +55,7 @@ const AnnotationRewriteURI = "notebooks.kubeflow.org/http-rewrite-uri"
 const AnnotationHeadersRequestSet = "notebooks.kubeflow.org/http-headers-request-set"
 
 const PrefixEnvVar = "NB_PREFIX"
-const namePrefix = "nb-"
+const namePrefix = "nb"
 const generatedSuffixLength = 5
 const maxNameLength = 63
 
@@ -238,10 +238,11 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "unable to delete obsolete Service")
 		return ctrl.Result{}, err
 	}
+	
 
 	// Reconcile virtual service if we use ISTIO.
 	if os.Getenv("USE_ISTIO") == "true" {
-		err = r.reconcileVirtualService(instance)
+		err = r.reconcileVirtualService(instance, foundService.Name)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -506,7 +507,7 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 }
 
 
-func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructured, error) {
+func generateVirtualService(instance *v1beta1.Notebook, serviceName string) (*unstructured.Unstructured, error) {
 	name := instance.Name
 	namespace := instance.Namespace
 	clusterDomain := "cluster.local"
@@ -527,7 +528,7 @@ func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructu
 	if clusterDomainFromEnv, ok := os.LookupEnv("CLUSTER_DOMAIN"); ok {
 		clusterDomain = clusterDomainFromEnv
 	}
-	service := fmt.Sprintf("%s.%s.svc.%s", name, namespace, clusterDomain)
+	service := fmt.Sprintf("%s.%s.svc.%s", serviceName, namespace, clusterDomain)
 
 	vsvc := &unstructured.Unstructured{}
 	vsvc.SetAPIVersion("networking.istio.io/v1alpha3")
@@ -608,9 +609,9 @@ func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructu
 
 }
 
-func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook) error {
+func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook, serviceName string) error {
 	log := r.Log.WithValues("notebook", instance.Namespace)
-	virtualService, err := generateVirtualService(instance)
+	virtualService, err := generateVirtualService(instance, serviceName)
 	if err != nil {
 		log.Info("Unable to generate VirtualService...", err)
 		return err
