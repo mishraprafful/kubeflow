@@ -16,7 +16,12 @@ limitations under the License.
 package controllers
 
 import (
+	"base64"
 	"context"
+	"hash"
+	"hash/fnv"
+
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -381,7 +386,7 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
+			GenerateName: fmt.Sprintf("%s-%s-", instance.Name, computeObjectHash(fnv.New32a(), instance)),
 			Namespace: instance.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -454,13 +459,15 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 	// Define the desired Service object
 	port := DefaultContainerPort
 	containerPorts := instance.Spec.Template.Spec.Containers[0].Ports
+	hasher := fnv.New32a()
+	objHash := computeObjectHash(hasher, instance)
 	if containerPorts != nil {
 		port = int(containerPorts[0].ContainerPort)
 	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s%s-%s", namePrefix, instance.Namespace, instance.Name),
 			Namespace: instance.Namespace,
+			GenerateName: fmt.Sprintf("%s-%s-", instance.Name,  objHash),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     "ClusterIP",
@@ -488,6 +495,8 @@ func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructu
 	namespace := instance.Namespace
 	clusterDomain := "cluster.local"
 	prefix := fmt.Sprintf("/notebook/%s/%s/", namespace, name)
+	hasher := fnv.New32a()
+	objHash := computeObjectHash(hasher, instance)
 
 	// unpack annotations from Notebook resource
 	annotations := make(map[string]string)
@@ -509,7 +518,7 @@ func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructu
 	vsvc := &unstructured.Unstructured{}
 	vsvc.SetAPIVersion("networking.istio.io/v1alpha3")
 	vsvc.SetKind("VirtualService")
-	vsvc.SetName(virtualServiceName(name, namespace))
+	vsvc.SetGenerateName(fmt.Sprintf("%s-%s-", instance.Name, objHash))
 	vsvc.SetNamespace(namespace)
 
 	istioHost := os.Getenv("ISTIO_HOST")
@@ -787,4 +796,10 @@ func (r *NotebookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return nil
+}
+
+// computeObjectHash takes any Kubernetes object as input and computes a hash for it.
+func computeObjectHash(hasher hash.Hash, obj interface{}) string {
+    hasher.Reset()
+		return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 }
