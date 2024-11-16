@@ -16,12 +16,11 @@ limitations under the License.
 package controllers
 
 import (
-	"base64"
 	"context"
+	"encoding/base64"
 	"hash"
 	"hash/fnv"
 
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -155,9 +154,23 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	// Check if the StatefulSet already exists
 	foundStateful := &appsv1.StatefulSet{}
+	namespacedStatefulSets := &appsv1.StatefulSetList{}
 	justCreated := false
-	err := r.Get(ctx, types.NamespacedName{Name: ss.Name, Namespace: ss.Namespace}, foundStateful)
-	if err != nil && apierrs.IsNotFound(err) {
+
+	err := r.List(ctx, namespacedStatefulSets, client.InNamespace(ss.Namespace))
+	if err != nil {
+		log.Error(err, "error listing StatefulSets")
+		return ctrl.Result{}, err
+	}
+
+	for _, sts := range namespacedStatefulSets.Items {
+		if metav1.IsControlledBy(&sts, instance) {
+			foundStateful = &sts
+			break
+		}
+	}
+
+	if foundStateful.Name == "" && foundStateful.Namespace == "" {
 		log.Info("Creating StatefulSet", "namespace", ss.Namespace, "name", ss.Name)
 		r.Metrics.NotebookCreation.WithLabelValues(ss.Namespace).Inc()
 		err = r.Create(ctx, ss)
@@ -167,10 +180,8 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			r.Metrics.NotebookFailCreation.WithLabelValues(ss.Namespace).Inc()
 			return ctrl.Result{}, err
 		}
-	} else if err != nil {
-		log.Error(err, "error getting Statefulset")
-		return ctrl.Result{}, err
 	}
+
 	// Update the foundStateful object and write the result back if there are any changes
 	if !justCreated && reconcilehelper.CopyStatefulSetFields(ss, foundStateful) {
 		log.Info("Updating StatefulSet", "namespace", ss.Namespace, "name", ss.Name)
@@ -189,9 +200,22 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Check if the Service already exists
 	foundService := &corev1.Service{}
+	namespacedServices := &corev1.ServiceList{}
 	justCreated = false
-	err = r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, foundService)
-	if err != nil && apierrs.IsNotFound(err) {
+	err = r.List(ctx, namespacedServices, client.InNamespace(ss.Namespace))
+	if err != nil {
+		log.Error(err, "error listing Services")
+		return ctrl.Result{}, err
+	}
+	
+	for _, ser := range namespacedServices.Items {
+		if metav1.IsControlledBy(&ser, instance) {
+			foundService = &ser
+			break
+		}
+	}
+	
+	if foundService.Name == "" && foundService.Namespace == "" {
 		log.Info("Creating Service", "namespace", service.Namespace, "name", service.Name)
 		err = r.Create(ctx, service)
 		justCreated = true
@@ -199,9 +223,6 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "unable to create Service")
 			return ctrl.Result{}, err
 		}
-	} else if err != nil {
-		log.Error(err, "error getting Service")
-		return ctrl.Result{}, err
 	}
 	// Update the foundService object and write the result back if there are any changes
 	if !justCreated && reconcilehelper.CopyServiceFields(service, foundService) {
@@ -486,9 +507,6 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 	return svc
 }
 
-func virtualServiceName(kfName string, namespace string) string {
-	return fmt.Sprintf("%s%s-%s", namePrefix, namespace, kfName)
-}
 
 func generateVirtualService(instance *v1beta1.Notebook) (*unstructured.Unstructured, error) {
 	name := instance.Name
@@ -606,26 +624,45 @@ func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook)
 	}
 	// Check if the virtual service already exists.
 	foundVirtual := &unstructured.Unstructured{}
-	justCreated := false
 	foundVirtual.SetAPIVersion("networking.istio.io/v1alpha3")
 	foundVirtual.SetKind("VirtualService")
-	err = r.Get(context.TODO(), types.NamespacedName{Name: virtualServiceName(instance.Name,
-		instance.Namespace), Namespace: instance.Namespace}, foundVirtual)
-	if err != nil && apierrs.IsNotFound(err) {
-		log.Info("Creating virtual service", "namespace", instance.Namespace, "name",
-			virtualServiceName(instance.Name, instance.Namespace))
+	namespacedVirtualServices := &unstructured.UnstructuredList{}
+	justCreated := false
+
+	// List the VirtualServices in the given namespace
+	err = r.List(
+		context.TODO(),
+		namespacedVirtualServices,
+		client.InNamespace(instance.Namespace),
+	)
+	if err != nil {
+		log.Error(err, "error listing Virtual Services")
+		return err
+	}
+
+	// Manually filter the resources by kind and apiVersion
+	for _, virSer := range namespacedVirtualServices.Items {
+		// Check if the resource's kind and apiVersion match
+		if virSer.GetKind() == "VirtualService" && virSer.GetAPIVersion() == "networking.istio.io/v1alpha3" {
+			// If the resource is controlled by the instance, assign it to foundVirtual
+			if metav1.IsControlledBy(&virSer, instance) {
+				foundVirtual = &virSer
+				break
+			}
+		}
+	}
+	
+	if foundVirtual.GetName() == "" && foundVirtual.GetNamespace() == "" {
+		log.Info("Creating virtual service", "namespace", instance.Namespace, "notebook-name", instance.Name)
 		err = r.Create(context.TODO(), virtualService)
 		justCreated = true
 		if err != nil {
 			return err
 		}
-	} else if err != nil {
-		return err
 	}
 
 	if !justCreated && reconcilehelper.CopyVirtualService(virtualService, foundVirtual) {
-		log.Info("Updating virtual service", "namespace", instance.Namespace, "name",
-			virtualServiceName(instance.Name, instance.Namespace))
+		log.Info("Updating virtual service", "namespace", instance.Namespace, "notebook-name", instance.Name)
 		err = r.Update(context.TODO(), foundVirtual)
 		if err != nil {
 			return err
