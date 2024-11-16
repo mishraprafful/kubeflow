@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
@@ -627,6 +628,13 @@ func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook)
 	foundVirtual.SetAPIVersion("networking.istio.io/v1alpha3")
 	foundVirtual.SetKind("VirtualService")
 	namespacedVirtualServices := &unstructured.UnstructuredList{}
+	namespacedVirtualServices.SetGroupVersionKind(
+    schema.GroupVersionKind{
+        Group:   "networking.istio.io",
+        Version: "v1alpha3",
+        Kind:    "VirtualService",
+    },
+)
 	justCreated := false
 
 	// List the VirtualServices in the given namespace
