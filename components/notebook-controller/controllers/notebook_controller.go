@@ -206,14 +206,14 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "error listing Services")
 		return ctrl.Result{}, err
 	}
-	
+
 	for _, ser := range namespacedServices.Items {
 		if metav1.IsControlledBy(&ser, instance) {
 			foundService = &ser
 			break
 		}
 	}
-	
+
 	if foundService.Name == "" && foundService.Namespace == "" {
 		log.Info("Creating Service", "namespace", service.Namespace, "name", service.Name)
 		err = r.Create(ctx, service)
@@ -232,13 +232,12 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
-	
+
 	err = deleteObsoleteService(ctx, r, instance)
 	if err != nil {
 		log.Error(err, "unable to delete obsolete Service")
 		return ctrl.Result{}, err
 	}
-	
 
 	// Reconcile virtual service if we use ISTIO.
 	if os.Getenv("USE_ISTIO") == "true" {
@@ -408,7 +407,7 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-%s-", namePrefix, instance.Name),
-			Namespace: instance.Namespace,
+			Namespace:    instance.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &replicas,
@@ -486,7 +485,7 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: instance.Namespace,
+			Namespace:    instance.Namespace,
 			GenerateName: fmt.Sprintf("%s-%s-", namePrefix, instance.Name),
 		},
 		Spec: corev1.ServiceSpec{
@@ -505,7 +504,6 @@ func generateService(instance *v1beta1.Notebook) *corev1.Service {
 	}
 	return svc
 }
-
 
 func generateVirtualService(instance *v1beta1.Notebook, serviceName string) (*unstructured.Unstructured, error) {
 	name := instance.Name
@@ -625,12 +623,12 @@ func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook,
 	foundVirtual.SetKind("VirtualService")
 	namespacedVirtualServices := &unstructured.UnstructuredList{}
 	namespacedVirtualServices.SetGroupVersionKind(
-    schema.GroupVersionKind{
-        Group:   "networking.istio.io",
-        Version: "v1alpha3",
-        Kind:    "VirtualService",
-    },
-)
+		schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "VirtualService",
+		},
+	)
 	justCreated := false
 
 	// List the VirtualServices in the given namespace
@@ -655,7 +653,7 @@ func (r *NotebookReconciler) reconcileVirtualService(instance *v1beta1.Notebook,
 			}
 		}
 	}
-	
+
 	if foundVirtual.GetName() == "" && foundVirtual.GetNamespace() == "" {
 		log.Info("Creating virtual service", "namespace", instance.Namespace, "notebook-name", instance.Name)
 		err = r.Create(context.TODO(), virtualService)
@@ -680,36 +678,36 @@ func deleteObsoleteService(ctx context.Context, r *NotebookReconciler, instance 
 	log := r.Log.WithValues("notebook", instance.Namespace)
 	obsoleteServiceName := instance.Name
 	obsoleteService := &corev1.Service{}
-	
+
 	err := r.Get(ctx, client.ObjectKey{Name: obsoleteServiceName, Namespace: instance.Namespace}, obsoleteService)
 	if apierrs.IsNotFound(err) {
-			log.Info("Obsolete Service not found; nothing to delete", "namespace", instance.Namespace, "name", obsoleteServiceName)
-			return nil
+		log.Info("Obsolete Service not found; nothing to delete", "namespace", instance.Namespace, "name", obsoleteServiceName)
+		return nil
 	} else if err != nil {
-			log.Error(err, "error getting obsolete service", "namespace", instance.Namespace, "name", obsoleteServiceName)
-			return err
+		log.Error(err, "error getting obsolete service", "namespace", instance.Namespace, "name", obsoleteServiceName)
+		return err
 	}
 
 	log.Info("Found obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
-	
+
 	// Remove owner references
 	obsoleteService.OwnerReferences = []metav1.OwnerReference{}
 	err = r.Update(ctx, obsoleteService)
 	if err != nil {
-			log.Error(err, "unable to update owner reference for obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
-			return err
+		log.Error(err, "unable to update owner reference for obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
+		return err
 	}
 
 	// Delete the obsolete service
 	err = r.Delete(ctx, obsoleteService)
 	if err != nil {
-			log.Error(err, "unable to delete obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
-			return err
+		log.Error(err, "unable to delete obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
+		return err
 	}
 
 	log.Info("Deleted obsolete Service", "namespace", obsoleteService.Namespace, "name", obsoleteService.Name)
 	return nil
-	
+
 }
 
 func isStsOrPodEvent(event *corev1.Event) bool {
@@ -838,4 +836,3 @@ func (r *NotebookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return nil
 }
-
