@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: centraldashboard
-        image: docker.io/kubeflownotebookswg/centraldashboard
+        image: ghcr.io/kubeflow/kubeflow/central-dashboard
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -41,9 +41,11 @@ spec:
         - name: DASHBOARD_CONFIGMAP
           value: CD_CONFIGMAP_NAME_PLACEHOLDER
         - name: LOGOUT_URL
-          value: '/authservice/logout'
+          value: '/oauth2/sign_out'
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: COLLECT_METRICS
+          value: CD_COLLECT_METRICS
       serviceAccountName: centraldashboard

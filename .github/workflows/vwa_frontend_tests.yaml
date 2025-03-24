@@ -3,26 +3,30 @@ on:
   pull_request:
     paths:
       - components/crud-web-apps/volumes/frontend/**
+      - releasing/version/VERSION
+    branches:
+      - master
+      - v*-branch
 
 jobs:
   frontend-format-lint-check:
     name: Check code format and lint
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 12
+          node-version: 16
 
       - name: Check frontend code formatting
         run: |
           cd components/crud-web-apps/volumes/frontend
           npm i
           npm run format:check
+
       - name: Check frontend code linting
         run: |
           cd components/crud-web-apps/volumes/frontend
@@ -30,15 +34,16 @@ jobs:
           npm run lint-check
 
   frontend-unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Unit tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup node version to 12
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Setup node version to 16
+        uses: actions/setup-node@v4
         with:
-          node-version: 12
+          node-version: 16
 
       - name: Install Kubeflow common library dependecies
         run: |
@@ -46,11 +51,13 @@ jobs:
           npm i
           npm run build
           npm link ./dist/kubeflow
+
       - name: Install VWA dependencies
         run: |
           cd components/crud-web-apps/volumes/frontend
           npm i
           npm link kubeflow
+
       - name: Run unit tests
         run: |
           cd components/crud-web-apps/volumes/frontend
@@ -58,14 +65,15 @@ jobs:
 
   run-tests-in-chrome:
     name: UI tests in chrome
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup node version to 12
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Setup node version to 16
+        uses: actions/setup-node@v4
         with:
-          node-version: 12
+          node-version: 16
 
       - name: Install Kubeflow common library dependecies
         run: |
@@ -73,13 +81,15 @@ jobs:
           npm i
           npm run build
           npm link ./dist/kubeflow
+
       - name: Install VWA dependencies
         run: |
           cd components/crud-web-apps/volumes/frontend
           npm i
           npm link kubeflow
+
       - name: Serve UI & run Cypress tests in Chrome
-        uses: cypress-io/github-action@v4.2.0
+        uses: cypress-io/github-action@v6
         with:
           working-directory: components/crud-web-apps/volumes/frontend
           start: npm run serve
@@ -89,14 +99,15 @@ jobs:
 
   run-tests-in-firefox:
     name: UI tests in firefox
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup node version to 12
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Setup node version to 16
+        uses: actions/setup-node@v4
         with:
-          node-version: 12
+          node-version: 16
 
       - name: Install Kubeflow common library dependecies
         run: |
@@ -104,13 +115,15 @@ jobs:
           npm i
           npm run build
           npm link ./dist/kubeflow
+
       - name: Install VWA dependencies
         run: |
           cd components/crud-web-apps/volumes/frontend
           npm i
           npm link kubeflow
+
       - name: Serve UI & run Cypress tests in Firefox
-        uses: cypress-io/github-action@v4.2.0
+        uses: cypress-io/github-action@v6
         with:
           working-directory: components/crud-web-apps/volumes/frontend
           start: npm run serve

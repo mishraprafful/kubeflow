@@ -215,7 +215,7 @@ export const mockPods: V1Pod[] = [
               value: 'cluster.local',
             },
           ],
-          image: 'docker.io/istio/proxyv2:1.9.6',
+          image: 'gcr.io/istio-release/proxyv2:1.24.3',
           imagePullPolicy: 'Never',
           name: 'istio-proxy',
           ports: [
@@ -348,7 +348,7 @@ export const mockPods: V1Pod[] = [
             '-d',
             '15090,15021,15020',
           ],
-          image: 'docker.io/istio/proxyv2:1.9.6',
+          image: 'gcr.io/istio-release/proxyv2:1.24.3',
           imagePullPolicy: 'Never',
           name: 'istio-init',
           resources: {
@@ -581,7 +581,7 @@ export const mockPods: V1Pod[] = [
         {
           containerID:
             'docker://178d0538f16b6bea8ffaaf47d574a452eb1e1df0fcec7174832099f77c4a3872',
-          image: 'istio/proxyv2:1.9.6',
+          image: 'gcr.io/istio-release/proxyv2:1.24.3',
           imageID:
             'docker-pullable://istio/proxyv2@sha256:87a9db561d2ef628deea7a4cbd0adf008a2f64355a2796e3b840d445b7e9cd3e',
           lastState: {},
@@ -655,8 +655,7 @@ export const mockPods: V1Pod[] = [
           blockOwnerDeletion: true,
           controller: true,
           kind: 'ReplicaSet',
-          name:
-            'serving-openvaccine-0-486kc-predictor-default-00001-deployment-7695bf497f',
+          name: 'serving-openvaccine-0-486kc-predictor-default-00001-deployment-7695bf497f',
           uid: 'a2b15c20-2731-4640-862e-7c3ddfd2ca49',
         },
       ],
@@ -1244,8 +1243,7 @@ export const mockPods: V1Pod[] = [
           blockOwnerDeletion: true,
           controller: true,
           kind: 'ReplicaSet',
-          name:
-            'serving-openvaccine-2786a7fd31c47d404c0bd18da10bd203-deployment-84654847dc',
+          name: 'serving-openvaccine-2786a7fd31c47d404c0bd18da10bd203-deployment-84654847dc',
           uid: 'c98ae290-16b2-4822-9d8f-f5079fdb642e',
         },
       ],

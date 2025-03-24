@@ -37,8 +37,10 @@ ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME 300000
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS 2
 
 # args - software versions
-ARG KUBECTL_VERSION=v1.27.14
-ARG S6_VERSION=v3.2.0.0
+# https://kubernetes.io/releases/
+# https://github.com/just-containers/s6-overlay/releases
+ARG KUBECTL_VERSION=v1.31.6
+ARG S6_VERSION=v3.2.0.2
 
 # set shell to bash
 SHELL ["/bin/bash", "-c"]
